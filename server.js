@@ -20,43 +20,60 @@ app.use(cors());
 async function fetchSearchResults() {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Stealth Berlin';
+  const query = 'site:linkedin.com/in Stealth Hamburg';
+  const resultsPerPage = 10;
+  const totalResults = 30;
 
-  const url = `https://www.googleapis.com/customsearch/v1?q=${query}&key=${apiKey}&cx=${cx}`;
+  let allResults = [];
 
-  try {
-    const response = await axios.get(url);
-    const data = response.data;
-    await storeResultsInSupabase(data);
-    console.log('Results stored successfully');
-    return data;
-  } catch (error) {
-    console.error('Error fetching search results:', error);
-    throw error;
+  for (let start = 1; start <= totalResults; start += resultsPerPage) {
+    const url = `https://www.googleapis.com/customsearch/v1?q=${query}&key=${apiKey}&cx=${cx}&start=${start}`;
+
+    try {
+      const response = await axios.get(url);
+      const data = response.data;
+      allResults = allResults.concat(data.items || []);
+      console.log(`Fetched results ${start} to ${start + resultsPerPage - 1}`);
+    } catch (error) {
+      console.error(`Error fetching search results for start=${start}:`, error);
+      // Continue with the next batch instead of throwing an error
+    }
   }
+
+  if (allResults.length > 0) {
+    await storeResultsInSupabase({ items: allResults });
+    console.log('Results stored successfully');
+  } else {
+    console.log('No results were fetched');
+  }
+
+  return { items: allResults };
 }
 
 // Add this new endpoint to test if the API call is working
-app.get('/test-search', async (req, res) => {
-  try {
-    const results = await fetchSearchResults();
-    res.json(results);
-  } catch (error) {
-    res.status(500).json({ error: 'An error occurred while fetching search results' });
-  }
-});
+//app.get('/test-search', async (req, res) => {
+  //try {
+    //const results = await fetchSearchResults();
+    //res.json(results);
+  //} catch (error) {
+    //res.status(500).json({ error: 'An error occurred while fetching search results' });
+  //}
+//});
 
-// Function to insert data into Supabase
+// Function to upsert data into Supabase
 async function storeResultsInSupabase(data) {
   for (let item of data.items) {
-    const { data: insertData, error } = await supabase
+    const { data: upsertData, error } = await supabase
       .from('search_results')
-      .insert([
-        { title: item.title, link: item.link, snippet: item.snippet }
-      ]);
+      .upsert(
+        { title: item.title, link: item.link, snippet: item.snippet },
+        { onConflict: 'link', ignoreDuplicates: true }
+      );
     
     if (error) {
-      console.error('Error inserting data:', error);
+      console.error('Error upserting data:', error);
+    } else if (upsertData) {
+      console.log('Data upserted successfully:', upsertData);
     }
   }
 }
