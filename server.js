@@ -20,7 +20,7 @@ app.use(cors());
 async function fetchSearchResults() {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Stealth Munich';
+  const query = 'site:linkedin.com/in Stealth Amsterdam';
   const resultsPerPage = 10;
   const totalResults = 100;
 
