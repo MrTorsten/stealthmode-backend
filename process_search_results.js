@@ -12,74 +12,62 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-async function processSearchResults(deactivateOpenAI = true) {
+async function processSearchResults() {
   try {
-    // First, fetch all processed links
-    const { data: processedLinks, error: processedError } = await supabase
+    // Fetch unprocessed results
+    const { data: unprocessedResults, error } = await supabase
       .from('processed_results')
-      .select('link');
-
-    if (processedError) throw processedError;
-
-    const processedLinkSet = new Set(processedLinks.map(item => item.link));
-
-    // Now fetch all search results
-    const { data: allSearchResults, error } = await supabase
-      .from('search_results')
-      .select('og_description, title');
+      .select('id, og_description')
+      .is('processed', false);
 
     if (error) throw error;
-    // Filter out the processed links
-    const searchResults = allSearchResults.filter(result => !processedLinkSet.has(result.link));
 
-    for (const result of searchResults) {
-      if (!deactivateOpenAI) {
-        const prompt = `
-          Given the LinkedIn information, extract & structure data into the categories:
-          Education, Former Employers, Location, previous professional experiences & important facts, Number of LinkedIn connections. If you don't find data, please return empty string. Format location always: "City, Country". Please only provide university name (no sub-degrees or sub schools).
-          
-          Profile information:
-          ${result.title}
+    for (const result of unprocessedResults) {
+      console.log(`Processing result ID: ${result.id}`);
+      console.log(`OG Description: ${result.og_description}`);
+
+      const prompt = `
+        Given the LinkedIn information, extract & structure data into the categories:
+        Education, Former Employers, Location, previous professional experiences & important facts, Number of LinkedIn connections. If you don't find data, please return empty string. Format location always: "City, Country". Please only provide university name (no sub-degrees or sub schools).
+        
+        Profile information:
           ${result.og_description}
-          
-          Please format your response as a JSON object with the following structure:
-          {
-            "education": "",
-            "employer": "",
-            "location": "",
-            "otherExperiences": ""
-          }
-        `;
+        
+        Please format your response as a JSON object with the following structure:
+        {
+          "education": "",
+          "employer": "",
+          "location": "",
+          "otherExperiences": ""
+        }
+      `;
 
-        const chatCompletion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo-0125",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 300,
-        });
+      const chatCompletion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo-0125",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+      });
 
-        const structuredData = JSON.parse(chatCompletion.choices[0].message.content.trim());
+      const structuredData = JSON.parse(chatCompletion.choices[0].message.content.trim());
 
-        console.log(chatCompletion.choices[0].message.content.trim());
-        console.log(chatCompletion);
-      }
-
-      // Insert processed data into processed_results table
-      const { data, error: insertError } = await supabase
+      // Update processed data in processed_results table
+      const { data, error: updateError } = await supabase
         .from('processed_results')
-        .insert({
-          link: result.link,
+        .update({
           education: structuredData.education,
           employer: structuredData.employer,
           location: structuredData.location,
-          other_experiences: structuredData.otherExperiences
-        });
+          other_experiences: structuredData.otherExperiences,
+          processed: true
+        })
+        .eq('id', result.id);
 
-      if (insertError) throw insertError;
+      if (updateError) throw updateError;
 
-      console.log(`Processed and inserted data for ${result.link}`);
+      console.log(`Processed and updated data for ID ${result.id}`);
     }
 
-    console.log('All search results processed successfully');
+    console.log('All unprocessed search results processed successfully');
   } catch (error) {
     console.error('Error processing search results:', error);
   }
