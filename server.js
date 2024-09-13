@@ -4,6 +4,7 @@ const express = require('express');
 const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
+const he = require('he');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -16,18 +17,36 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Enable CORS
 app.use(cors());
 
+// Function to clean text of HTML entities and tags
+function cleanText(text) {
+  if (!text) return ''; // Handle null or undefined input
+  // Decode HTML entities
+  let cleaned = he.decode(text);
+  
+  // Replace <br> tags with newlines
+  cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
+  
+  // Strip remaining HTML tags
+  cleaned = cleaned.replace(/<[^>]*>/g, '');
+  
+  // Trim whitespace and remove extra newlines
+  cleaned = cleaned.trim().replace(/\n{3,}/g, '\n\n');
+  
+  return cleaned;
+}
+
 // Function to fetch search results from Google Custom Search API
 async function fetchSearchResults() {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Stealth Amsterdam';
+  const query = 'site:linkedin.com/in Stealth Copenhagen';
   const resultsPerPage = 10;
   const totalResults = 100;
 
   let allResults = [];
 
   for (let start = 1; start <= totalResults; start += resultsPerPage) {
-    const url = `https://www.googleapis.com/customsearch/v1?q=${query}&key=${apiKey}&cx=${cx}&start=${start}`;
+    const url = `https://www.googleapis.com/customsearch/v1?q=${query}&key=${apiKey}&cx=${cx}&start=${start}&fields=items(title,link,snippet,pagemap)`;
 
     try {
       const response = await axios.get(url);
@@ -50,30 +69,44 @@ async function fetchSearchResults() {
   return { items: allResults };
 }
 
-// Add this new endpoint to test if the API call is working
-//app.get('/test-search', async (req, res) => {
-  //try {
-    //const results = await fetchSearchResults();
-    //res.json(results);
-  //} catch (error) {
-    //res.status(500).json({ error: 'An error occurred while fetching search results' });
-  //}
-//});
+// Function to extract metadata from pagemap
+function extractMetadata(pagemap) {
+  const metatags = pagemap?.metatags?.[0] || {};
+  return {
+    ogDescription: metatags['og:description'],
+    ogImage: metatags['og:image'],
+    profileFirstName: metatags['profile:first_name'],
+    profileLastName: metatags['profile:last_name'],
+  };
+}
 
-// Function to upsert data into Supabase
 async function storeResultsInSupabase(data) {
   for (let item of data.items) {
+    const metadata = extractMetadata(item.pagemap);
     const { data: upsertData, error } = await supabase
       .from('search_results')
       .upsert(
-        { title: item.title, link: item.link, snippet: item.snippet },
-        { onConflict: 'link', ignoreDuplicates: true }
+        {
+          title: cleanText(item.title),
+          link: item.link,
+          snippet: cleanText(item.snippet),
+          og_description: cleanText(metadata.ogDescription),
+          og_image: metadata.ogImage,
+          profile_first_name: cleanText(metadata.profileFirstName),
+          profile_last_name: cleanText(metadata.profileLastName),
+          updated_at: new Date().toISOString() // Set the updated_at time
+        },
+        { 
+          onConflict: 'link',
+          ignoreDuplicates: false,
+          returning: 'minimal' // This improves performance for bulk upserts
+        }
       );
     
     if (error) {
       console.error('Error upserting data:', error);
-    } else if (upsertData) {
-      console.log('Data upserted successfully:', upsertData);
+    } else {
+      console.log('Data upserted successfully');
     }
   }
 }
