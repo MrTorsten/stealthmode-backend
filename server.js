@@ -39,7 +39,7 @@ function cleanText(text) {
 async function fetchSearchResults() {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Stealth Copenhagen';
+  const query = 'site:linkedin.com/in Stealth London';
   const resultsPerPage = 10;
   const totalResults = 100;
 
@@ -124,3 +124,29 @@ app.listen(port, () => {
 
 // Call it once on server start to test
 fetchSearchResults();
+
+// API Endpoints for Following/Unfollowing
+app.post('/api/follow', async (req, res) => {
+    const { profileId, userId } = req.body;
+    const { data, error } = await supabase
+        .from('following')
+        .insert([{ profile_id: profileId, user_id: userId }]);
+
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    res.status(200).json(data);
+});
+
+app.delete('/api/unfollow', async (req, res) => {
+    const { profileId, userId } = req.body;
+    const { data, error } = await supabase
+        .from('following')
+        .delete()
+        .match({ profile_id: profileId, user_id: userId });
+
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    res.status(200).json(data);
+});

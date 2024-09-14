@@ -28,7 +28,7 @@ async function processSearchResults() {
 
       const prompt = `
         Given the LinkedIn information, extract & structure data into the categories:
-        Education, Former Employers, Location, previous professional experiences & important facts, Number of LinkedIn connections. If you don't find data, please return empty string. Format location always: "City, Country". Please only provide university name (no sub-degrees or sub schools).
+        Education, Former Employers, Location, previous professional experiences or jobs & important facts. If you don't find data, please return empty string. Format location always: "City, Country". Please only provide university name (no sub-degrees or sub schools).
         
         Profile information:
           ${result.og_description}

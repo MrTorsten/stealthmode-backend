@@ -23,7 +23,8 @@ async function updateProcessedResults() {
         first_name: result.profile_first_name,
         og_image: result.og_image, 
         og_description: result.og_description, 
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        processed: true // Set the "processed" column to "TRUE"
       }));
   
       // Use upsert instead of checking manually
