@@ -39,9 +39,9 @@ function cleanText(text) {
 async function fetchSearchResults() {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Stealth London';
+  const query = 'site:linkedin.com/in Stealth Mode Dresden';
   const resultsPerPage = 10;
-  const totalResults = 100;
+  const totalResults = 50;
 
   let allResults = [];
 

@@ -10,22 +10,27 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function updateProcessedResults() {
     try {
-      // Fetch all search results
+      // Fetch all search results including title
       const { data: searchResults, error: searchError } = await supabase
         .from('search_results')
-        .select('link, profile_last_name, profile_first_name, og_image, og_description'); 
+        .select('link, profile_last_name, profile_first_name, og_image, og_description, title'); 
   
       if (searchError) throw searchError;
   
-      const upsertData = searchResults.map(result => ({
-        link: result.link,
-        last_name: result.profile_last_name,
-        first_name: result.profile_first_name,
-        og_image: result.og_image, 
-        og_description: result.og_description, 
-        updated_at: new Date().toISOString(),
-        processed: true // Set the "processed" column to "TRUE"
-      }));
+      const upsertData = searchResults.map(result => {
+        // Process the title to remove information before the first "-" or "–" and after the "|"
+        const processedTitle = result.title.split(/[-–]/).slice(1).join('-').split('|')[0].trim();
+        return {
+          link: result.link,
+          last_name: result.profile_last_name,
+          first_name: result.profile_first_name,
+          og_image: result.og_image, 
+          og_description: result.og_description,
+          title: processedTitle, // Include processed title in the upsert data
+          updated_at: new Date().toISOString(),
+          processed: true // Set the "processed" column to "TRUE"
+        };
+      });
   
       // Use upsert instead of checking manually
       const { data, error } = await supabase
