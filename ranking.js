@@ -10,7 +10,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-function truncateDescription(description, maxLength = 500) {
+function truncateDescription(description, maxLength = 1250) {
   return description.length > maxLength ? description.slice(0, maxLength) + '...' : description;
 }
 
@@ -18,17 +18,19 @@ async function processSearchResults() {
   try {
     const { data: allResults, error } = await supabase
       .from('processed_results')
-      .select('id, og_description')
+      .select('id, og_description, region, country')
       .is('total_score', null)
-      .limit(20);  // Process 3 profiles at a time
+      .eq('region', 'Europe')
+      .eq('country', 'Germany')
+      .limit(50);  // Reduced to 10 profiles and filtered for Europe and Germany
 
     if (error) throw error;
     if (allResults.length === 0) {
-      console.log('No unscored profiles found. All profiles have been processed.');
+      console.log('No unscored profiles found in Germany. All German profiles have been processed.');
       return;
     }
 
-    console.log(`Found ${allResults.length} unscored profiles to process.`);
+    console.log(`Found ${allResults.length} unscored profiles in Germany to process.`);
 
     const batchedProfiles = allResults.map(result => ({
       id: result.id,
@@ -36,11 +38,10 @@ async function processSearchResults() {
     }));
 
     const prompt = `
-Analyze the following LinkedIn profiles and score the likelihood of startup success (0-100) in these categories:
-1. Previous Entrepreneurial Success
-2. Championships Won
-3. Educational Background
-4. Work Experience
+Analyze the following LinkedIn profiles and score likelihood of startup success (0-100) in the categories:
+1. Previous Entrepreneurial Success (co-founder of a startup, exits, acquisitions, sold companies)
+3. Elite Educational Background (e.g. Standford, Harvard or other elite unis, overindex on STEM degrees, applied science unis score lower)
+4. Previous high profile job (e.g. Goldman Sachs, McKinsey, BCG, Palantir, BigTech; if no high profile job, score lower, don't consider stealth mode jobs)
 
 Provide brief reasons for scores. Format your response as a valid JSON array of objects:
 
@@ -49,13 +50,11 @@ Provide brief reasons for scores. Format your response as a valid JSON array of 
     "id": "profile_id",
     "scores": {
       "previous_entrepreneurial_success": 0,
-      "championships_won": 0,
       "educational_background": 0,
       "work_experience": 0
     },
     "reasons": {
       "previous_entrepreneurial_success": "",
-      "championships_won": "",
       "educational_background": "",
       "work_experience": ""
     }
@@ -66,39 +65,68 @@ Profiles to evaluate:
 ${JSON.stringify(batchedProfiles)}
 `;
 
-    console.log("Sending request to OpenAI API...");
-    const completion = await openai.completions.create({
-      model: "gpt-3.5-turbo-instruct",
-      prompt: prompt,
-      max_tokens: 1500,
-      temperature: 0.7,
-    });
+console.log("Sending request to OpenAI API...");
+const completion = await openai.chat.completions.create({
+  model: "gpt-4o-mini",
+  messages: [
+    { role: "user", content: prompt }
+  ],
+  max_tokens: 9999,
+  temperature: 0.3,
+});
 
-    console.log("Received response from OpenAI API.");
-    console.log("Token usage:", JSON.stringify(completion.usage, null, 2));
+console.log("Received response from OpenAI API.");
+console.log(`Token usage: ${completion.usage.total_tokens} tokens consumed.`);
 
-    let scoringResults;
-    try {
-      scoringResults = JSON.parse(completion.choices[0].text);
-      console.log("Successfully parsed API response.");
-    } catch (parseError) {
-      console.error("Error parsing JSON:", parseError);
-      console.log("Attempted to parse:", completion.choices[0].text);
-      return;
-    }
+let scoringResults;
+try {
+  let content = completion.choices[0]?.message?.content;
 
-    if (!Array.isArray(scoringResults) || scoringResults.length === 0) {
-      console.error("Unexpected response format or empty results.");
-      return;
-    }
+  if (!content) {
+    throw new Error("No content returned from the model.");
+  }
 
-    console.log(`Parsed ${scoringResults.length} results from API response.`);
+  // Remove possible markdown backticks (```json ... ```) from the response
+  content = content.replace(/```json|```/g, '').trim();
+
+  // Parse the cleaned content as JSON
+  scoringResults = JSON.parse(content);
+  console.log("Successfully parsed API response.");
+} catch (parseError) {
+  console.error("Error parsing JSON:", parseError);
+  console.log("Attempted to parse:", completion.choices[0]?.message?.content);
+  return;
+}
+
+if (!Array.isArray(scoringResults) || scoringResults.length === 0) {
+  console.error("Unexpected response format or empty results.");
+  return;
+}
+
+console.log(`Parsed ${scoringResults.length} results from API response.`);
 
     const weights = {
       previous_entrepreneurial_success: 0.4,
-      championships_won: 0.3,
-      educational_background: 0.2,
-      work_experience: 0.1
+      educational_background: 0.3,
+      work_experience: 0.3
+    };
+
+    // Fetch all existing scores for normalization
+    const { data: existingScores, error: fetchError } = await supabase
+      .from('processed_results')
+      .select('id, total_score')
+      .not('total_score', 'is', null);
+
+    if (fetchError) {
+      console.error('Error fetching existing scores:', fetchError);
+      return;
+    }
+
+    // Calculate percentiles for normalization
+    const allScores = existingScores.map(score => score.total_score);
+    const getPercentile = (score) => {
+      const count = allScores.filter(s => s <= score).length;
+      return (count / allScores.length) * 100;
     };
 
     for (const result of scoringResults) {
@@ -107,11 +135,14 @@ ${JSON.stringify(batchedProfiles)}
         continue;
       }
 
-      let totalScore = 0;
+      let rawTotalScore = 0;
       for (const [category, weight] of Object.entries(weights)) {
-        totalScore += (result.scores[category] || 0) * weight;
+        rawTotalScore += (result.scores[category] || 0) * weight;
       }
-      totalScore = parseFloat(totalScore.toFixed(2));
+      rawTotalScore = parseFloat(rawTotalScore.toFixed(2));
+
+      // Normalize the score
+      const normalizedScore = getPercentile(rawTotalScore);
 
       const scoringReason = Object.entries(result.scores).map(([category, score]) => 
         `${category.replace(/_/g, ' ')}: ${score}/100 - ${result.reasons[category] || 'No reason provided'}`
@@ -122,19 +153,20 @@ ${JSON.stringify(batchedProfiles)}
         .from('processed_results')
         .update({
           scoring_reason: scoringReason,
-          total_score: totalScore
+          raw_total_score: rawTotalScore,
+          total_score: normalizedScore
         })
         .eq('id', result.id);
 
       if (updateError) {
         console.error(`Error updating database for ID ${result.id}:`, updateError);
       } else {
-        console.log(`Successfully updated scoring for ID ${result.id} with total score: ${totalScore}`);
+        console.log(`Successfully updated scoring for ID ${result.id} with normalized score: ${normalizedScore}`);
         console.log(`Update result:`, data);
       }
     }
 
-    console.log('All unscored search results processed successfully');
+    console.log('All unscored search results in Germany processed successfully');
   } catch (error) {
     console.error('Error processing search results:', error);
   }

@@ -27,8 +27,7 @@ async function updateProcessedResults() {
           og_image: result.og_image, 
           og_description: result.og_description,
           title: processedTitle, // Include processed title in the upsert data
-          updated_at: new Date().toISOString(),
-          processed: true // Set the "processed" column to "TRUE"
+          updated_at: new Date().toISOString()
         };
       });
   
