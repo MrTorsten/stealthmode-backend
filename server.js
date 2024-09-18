@@ -42,7 +42,7 @@ async function fetchSearchResults() {
   const cx = process.env.GOOGLE_CX;
   const query = 'site:linkedin.com/in Berlin Stealth Mode';
   const resultsPerPage = 10;
-  const totalResults = 150;
+  const totalResults = 100;
 
   let allResults = [];
 
