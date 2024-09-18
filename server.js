@@ -173,11 +173,62 @@ async function fetchAndStoreSearchResults() {
   }
 }
 
+// Wrap all main functions in async functions for easier chaining
+async function runFetchSearchResults() {
+  console.log('Starting fetchSearchResults');
+  const results = await fetchSearchResults();
+  console.log('Completed fetchSearchResults');
+  return results;
+}
+
+async function runStoreResultsInSupabase(data) {
+  console.log('Starting storeResultsInSupabase');
+  await storeResultsInSupabase(data);
+  console.log('Completed storeResultsInSupabase');
+}
+
+async function setupServer() {
+  console.log('Setting up server');
+  // API Endpoints setup
+  app.post('/api/follow', async (req, res) => {
+    // ... existing follow logic ...
+  });
+
+  app.delete('/api/unfollow', async (req, res) => {
+    // ... existing unfollow logic ...
+  });
+
+  if (!isGitHubAction) {
+    app.listen(port, () => {
+      console.log(`Server running at http://localhost:${port}`);
+    });
+  }
+  console.log('Server setup complete');
+}
+
+// Main execution function
+async function executeAllFunctions() {
+  try {
+    await fetchAndStoreSearchResults();
+    console.log('fetchAndStoreSearchResults completed');
+
+    const searchResults = await runFetchSearchResults();
+    await runStoreResultsInSupabase(searchResults);
+    await setupServer();
+
+    console.log('All functions executed successfully');
+  } catch (error) {
+    console.error('Error during function execution:', error);
+    throw error;
+  }
+}
+
+// Execution logic based on environment
 if (isGitHubAction) {
   console.log('Running in GitHub Actions environment');
-  fetchAndStoreSearchResults()
+  executeAllFunctions()
     .then(() => {
-      console.log('Search results fetched and stored successfully');
+      console.log('All operations completed successfully in GitHub Actions');
       process.exit(0);
     })
     .catch((error) => {
@@ -186,10 +237,13 @@ if (isGitHubAction) {
     });
 } else {
   console.log('Running in normal server environment');
-  // Your normal server startup code
-  app.listen(process.env.PORT || 3000, () => {
-    console.log(`Server running on port ${process.env.PORT || 3000}`);
-  });
+  executeAllFunctions()
+    .then(() => {
+      console.log('All operations completed successfully in normal environment');
+    })
+    .catch((error) => {
+      console.error('Error in normal environment:', error);
+    });
 }
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -197,36 +251,5 @@ process.on('unhandledRejection', (reason, promise) => {
   // Application specific logging, throwing an error, or other logic here
 });
 
-// API Endpoints for Following/Unfollowing
-app.post('/api/follow', async (req, res) => {
-    const { profileId, userId } = req.body;
-    const { data, error } = await supabase
-        .from('following')
-        .insert([{ profile_id: profileId, user_id: userId }]);
-
-    if (error) {
-        return res.status(400).json({ error: error.message });
-    }
-    res.status(200).json(data);
-});
-
-app.delete('/api/unfollow', async (req, res) => {
-    const { profileId, userId } = req.body;
-    const { data, error } = await supabase
-        .from('following')
-        .delete()
-        .match({ profile_id: profileId, user_id: userId });
-
-    if (error) {
-        return res.status(400).json({ error: error.message });
-    }
-    res.status(200).json(data);
-});
-
-// Start the server
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
-
-// Call it once on server start to test
-fetchSearchResults();
+// Remove this line as it's now handled in executeAllFunctions
+// fetchSearchResults();
