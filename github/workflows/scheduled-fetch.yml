@@ -1,0 +1,32 @@
+name: Scheduled Search Results Fetch
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  fetch-search-results:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20.17.0'  # Replace '14' with your actual Node.js version
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run server script
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GOOGLE_CX: ${{ secrets.GOOGLE_CX }}
+        PORT: 3000  # Add any other environment variables your server might need
+      run: node server.js
