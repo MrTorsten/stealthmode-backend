@@ -39,9 +39,9 @@ function cleanText(text) {
 async function fetchSearchResults() {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Stealth Germany';
+  const query = 'site:linkedin.com/in Berlin Stealth Mode';
   const resultsPerPage = 10;
-  const totalResults = 100;
+  const totalResults = 150;
 
   let allResults = [];
 
@@ -83,32 +83,82 @@ function extractMetadata(pagemap) {
 async function storeResultsInSupabase(data) {
   for (let item of data.items) {
     const metadata = extractMetadata(item.pagemap);
-    const { data: upsertData, error } = await supabase
+    const newData = {
+      title: cleanText(item.title),
+      link: item.link,
+      snippet: cleanText(item.snippet),
+      og_description: cleanText(metadata.ogDescription),
+      og_image: metadata.ogImage,
+      profile_first_name: cleanText(metadata.profileFirstName),
+      profile_last_name: cleanText(metadata.profileLastName),
+      updated_at: new Date().toISOString(),
+    };
+
+    // First, try to get the existing record
+    const { data: existingData, error: fetchError } = await supabase
       .from('search_results')
-      .upsert(
-        {
-          title: cleanText(item.title),
-          link: item.link,
-          snippet: cleanText(item.snippet),
-          og_description: cleanText(metadata.ogDescription),
-          og_image: metadata.ogImage,
-          profile_first_name: cleanText(metadata.profileFirstName),
-          profile_last_name: cleanText(metadata.profileLastName),
-          updated_at: new Date().toISOString() // Set the updated_at time
-        },
-        { 
-          onConflict: 'link',
-          ignoreDuplicates: false,
-          returning: 'minimal' // This improves performance for bulk upserts
+      .select('*')
+      .eq('link', item.link)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching existing data:', fetchError);
+      continue;
+    }
+
+    if (existingData) {
+      // Compare and update if there are changes
+      const changes = getChanges(existingData, newData);
+      if (Object.keys(changes).length > 0) {
+        const { data: updateData, error: updateError } = await supabase
+          .from('search_results')
+          .update({ 
+            ...newData, 
+            updated_content: changes
+          })
+          .eq('link', item.link);
+
+        if (updateError) {
+          console.error('Error updating data:', updateError);
+        } else {
+          console.log('Data updated successfully');
         }
-      );
-    
-    if (error) {
-      console.error('Error upserting data:', error);
+      } else {
+        console.log('No changes detected');
+      }
     } else {
-      console.log('Data upserted successfully');
+      // Insert new record
+      const { data: insertData, error: insertError } = await supabase
+        .from('search_results')
+        .insert([{ 
+          ...newData, 
+          updated_content: null  // No changes for new records
+        }]);
+
+      if (insertError) {
+        console.error('Error inserting data:', insertError);
+      } else {
+        console.log('Data inserted successfully');
+      }
     }
   }
+}
+
+// Function to get changes between old and new profile data
+function getChanges(oldProfile, newProfile) {
+  const relevantKeys = ['title', 'snippet', 'og_description', 'og_image', 'profile_first_name', 'profile_last_name'];
+  const changes = {};
+
+  for (const key of relevantKeys) {
+    if (oldProfile[key] !== newProfile[key]) {
+      changes[key] = {
+        old: oldProfile[key],
+        new: newProfile[key]
+      };
+    }
+  }
+
+  return changes;
 }
 
 // Set up cron job to run once per day
@@ -116,14 +166,6 @@ cron.schedule('0 0 * * *', () => {
   console.log('Running daily job to fetch search results...');
   fetchSearchResults();
 });
-
-// Start the server
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
-
-// Call it once on server start to test
-fetchSearchResults();
 
 // API Endpoints for Following/Unfollowing
 app.post('/api/follow', async (req, res) => {
@@ -150,3 +192,11 @@ app.delete('/api/unfollow', async (req, res) => {
     }
     res.status(200).json(data);
 });
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
+
+// Call it once on server start to test
+fetchSearchResults();

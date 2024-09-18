@@ -18,7 +18,7 @@ async function processSearchResults() {
     const { data: unprocessedResults, error } = await supabase
       .from('processed_results')
       .select('id, og_description')
-      .is('processed', false);
+      .or('processed.is.null, processed.eq.false'); // Example for checking both conditions
 
     if (error) throw error;
 

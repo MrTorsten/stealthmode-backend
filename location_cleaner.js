@@ -42,7 +42,7 @@ async function extractRegionFromLocation() {
           }
         ],
         max_tokens: 50,
-        temperature: 0.4,
+        temperature: 0.3,
       });
 
       const response = JSON.parse(completion.choices[0].message.content.trim());

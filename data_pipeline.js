@@ -20,14 +20,15 @@ async function updateProcessedResults() {
       const upsertData = searchResults.map(result => {
         // Process the title to remove information before the first "-" or "–" and after the "|"
         const processedTitle = result.title.split(/[-–]/).slice(1).join('-').split('|')[0].trim();
+        // Process the og_description to remove text after "Sehen Sie sich das Profil"
+        const processedOgDescription = result.og_description.split("Sehen Sie sich das Profil")[0].trim();
         return {
           link: result.link,
           last_name: result.profile_last_name,
           first_name: result.profile_first_name,
           og_image: result.og_image, 
-          og_description: result.og_description,
+          og_description: processedOgDescription, // Include processed og_description in the upsert data
           title: processedTitle, // Include processed title in the upsert data
-          updated_at: new Date().toISOString()
         };
       });
   
