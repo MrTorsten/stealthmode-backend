@@ -3,8 +3,7 @@ name: Scheduled Search Results Fetch
 on:
   schedule:
     # Runs at 00:00 UTC every day
-    #- cron: '0 0 * * *'#
-   - cron: '*/5 * * * *'  # Runs every 5 minutes
+    - cron: '0 0 * * *'
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
@@ -13,12 +12,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3  # Updated to v3
 
     - name: Set up Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v3  # Updated to v3
       with:
-        node-version: '20'  # Replace '14' with your actual Node.js version
+        node-version: '20'  # Explicitly using Node.js 20
 
     - name: Install dependencies
       run: npm ci
@@ -29,5 +28,8 @@ jobs:
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         GOOGLE_CX: ${{ secrets.GOOGLE_CX }}
-        PORT: 3000  # Add any other environment variables your server might need
-      run: node server.js
+        PORT: 3000
+      run: |
+        node -e "console.log('Node.js version:', process.version)"
+        node -e "console.log('Environment variables:', process.env)"
+        node server.js || { echo "server.js failed"; exit 1; }

@@ -5,7 +5,7 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
 const he = require('he');
-
+const isGitHubAction = process.env.GITHUB_ACTIONS === 'true';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -162,10 +162,39 @@ function getChanges(oldProfile, newProfile) {
   return changes;
 }
 
-// Set up cron job to run once per day
-cron.schedule('0 0 * * *', () => {
-  console.log('Running daily job to fetch search results...');
-  fetchSearchResults();
+async function fetchAndStoreSearchResults() {
+  try {
+    console.log('Starting fetchAndStoreSearchResults');
+    // Your existing fetch and store logic here...
+    console.log('Completed fetchAndStoreSearchResults');
+  } catch (error) {
+    console.error('Error in fetchAndStoreSearchResults:', error);
+    throw error;  // Re-throw the error to ensure the process exits with a non-zero code
+  }
+}
+
+if (isGitHubAction) {
+  console.log('Running in GitHub Actions environment');
+  fetchAndStoreSearchResults()
+    .then(() => {
+      console.log('Search results fetched and stored successfully');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Fatal error in GitHub Actions run:', error);
+      process.exit(1);
+    });
+} else {
+  console.log('Running in normal server environment');
+  // Your normal server startup code
+  app.listen(process.env.PORT || 3000, () => {
+    console.log(`Server running on port ${process.env.PORT || 3000}`);
+  });
+}
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Application specific logging, throwing an error, or other logic here
 });
 
 // API Endpoints for Following/Unfollowing
