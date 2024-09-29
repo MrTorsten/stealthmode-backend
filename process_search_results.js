@@ -14,11 +14,12 @@ const openai = new OpenAI({
 
 async function processSearchResults() {
   try {
-    // Fetch unprocessed results
+    // Fetch results where both education and location are NULL
     const { data: unprocessedResults, error } = await supabase
       .from('processed_results')
       .select('id, og_description')
-      .or('processed.is.null, processed.eq.false'); // Example for checking both conditions
+      .is('education', null) // Check if education is NULL
+      .is('location', null);  // Check if location is NULL
 
     if (error) throw error;
 

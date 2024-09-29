@@ -1,50 +1,96 @@
-// Add this import at the top of your file
-const { createClient } = require('@supabase/supabase-js'); // Ensure you have the correct package installed
-
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL; // Ensure this line is declared only once
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function updateProcessedResults() {
     try {
-      // Fetch all search results including title
-      const { data: searchResults, error: searchError } = await supabase
-        .from('search_results')
-        .select('link, profile_last_name, profile_first_name, og_image, og_description, title'); 
-  
-      if (searchError) throw searchError;
-  
-      const upsertData = searchResults.map(result => {
-        // Process the title to remove information before the first "-" or "–" and after the "|"
-        const processedTitle = result.title.split(/[-–]/).slice(1).join('-').split('|')[0].trim();
-        // Process the og_description to remove text after "Sehen Sie sich das Profil"
-        const processedOgDescription = result.og_description.split("Sehen Sie sich das Profil")[0].trim();
-        return {
-          link: result.link,
-          last_name: result.profile_last_name,
-          first_name: result.profile_first_name,
-          og_image: result.og_image, 
-          og_description: processedOgDescription, // Include processed og_description in the upsert data
-          title: processedTitle, // Include processed title in the upsert data
-        };
-      });
-  
-      // Use upsert instead of checking manually
-      const { data, error } = await supabase
-        .from('processed_results')
-        .upsert(upsertData, { onConflict: 'link' }); // Ensure 'link' is a unique constraint in your table
-  
-      if (error) throw error;
-  
-      console.log('Processed results updated successfully');
+        const { data: searchResults, error: searchError } = await supabase
+            .from('search_results')
+            .select('link, profile_last_name, profile_first_name, og_image, og_description, title');
+
+        if (searchError) throw searchError;
+
+        const currentTimestamp = new Date().toISOString();
+
+        // Get existing processed results
+        const { data: existingProcessedResults, error: existingError } = await supabase
+            .from('processed_results')
+            .select('*');
+
+        if (existingError) throw existingError;
+
+        const existingMap = new Map(existingProcessedResults.map(item => [item.link, item]));
+
+        const upsertData = [];
+        let unchangedCount = 0;  // Changed to let
+        const changedFields = new Set();
+
+        searchResults.forEach(result => {
+            const processedTitle = result.title.split(/[-–]/).slice(1).join('-').split('|')[0].trim();
+            const processedOgDescription = result.og_description.split("Sehen Sie sich das Profil")[0].trim();
+            
+            const newData = {
+                link: result.link,
+                last_name: result.profile_last_name,
+                first_name: result.profile_first_name,
+                og_image: result.og_image,
+                og_description: processedOgDescription,
+                title: processedTitle,
+                updated_at: currentTimestamp,
+            };
+
+            const existingData = existingMap.get(result.link);
+
+            if (existingData) {
+                newData.created_at = existingData.created_at;
+                let isChanged = false;
+                
+                for (const [key, value] of Object.entries(newData)) {
+                    if (key !== 'updated_at' && value !== existingData[key]) {
+                        isChanged = true;
+                        changedFields.add(key);
+                        console.log(`Change detected for link ${result.link} in field ${key}:`);
+                        console.log(`  Old value: ${existingData[key]}`);
+                        console.log(`  New value: ${value}`);
+                    }
+                }
+
+                if (isChanged) {
+                    upsertData.push(newData);
+                } else {
+                    unchangedCount++;
+                }
+            } else {
+                newData.created_at = currentTimestamp;
+                upsertData.push(newData);
+            }
+        });
+
+        // Perform the upsert only if there are changes
+        if (upsertData.length > 0) {
+            const { data, error } = await supabase
+                .from('processed_results')
+                .upsert(upsertData, { 
+                    onConflict: 'link',
+                    ignoreDuplicates: false
+                });
+
+            if (error) throw error;
+        }
+
+        console.log(`Processing complete.`);
+        console.log(`New insertions: ${upsertData.filter(item => !existingMap.has(item.link)).length}`);
+        console.log(`Updates to existing rows: ${upsertData.filter(item => existingMap.has(item.link)).length}`);
+        console.log(`Unchanged rows: ${unchangedCount}`);
+        console.log(`Total rows processed: ${searchResults.length}`);
+        console.log(`Fields that changed: ${Array.from(changedFields).join(', ')}`);
+
     } catch (error) {
-      console.error('Error updating processed results:', error);
+        console.error('Error updating processed results:', error);
     }
-  }
+}
 
-// Call the function to update processed results
 updateProcessedResults();
-

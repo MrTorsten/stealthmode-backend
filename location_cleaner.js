@@ -32,27 +32,36 @@ async function extractRegionFromLocation() {
         messages: [
           {
             role: "system",
-            content: "Determines the region and country of a given location. " +
+            content: "You are a system that returns the region and country of a given location in valid JSON format. " +
                      "The possible regions are: North America, Europe, Asia, Africa, LATAM, Australia. " +
-                     "Return the region and the country separately in JSON format."
+                     "Only respond in this format: {\"region\": \"<region>\", \"country\": \"<country>\"}."
           },
           {
             role: "user",
             content: `Determine the region and country for this location: "${profile.location}"`
           }
         ],
-        max_tokens: 50,
+        max_tokens: 100,
         temperature: 0.3,
       });
 
-      const response = JSON.parse(completion.choices[0].message.content.trim());
-      const region = response.region;
-      const country = response.country;
+      let responseText = completion.choices[0].message.content.trim();
+
+      // Try parsing the response as JSON
+      let response;
+      try {
+        response = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error(`Failed to parse JSON for profile ${profile.id}. Response: ${responseText}`);
+        continue; // Skip this profile and move to the next
+      }
+
+      const { region, country } = response;
 
       // Update the database with the extracted region and country
       const { error: updateError } = await supabase
         .from('processed_results')
-        .update({ region: region, country: country })
+        .update({ region, country })
         .eq('id', profile.id);
 
       if (updateError) {
@@ -61,7 +70,7 @@ async function extractRegionFromLocation() {
         console.log(`Updated profile ${profile.id} with region: ${region} and country: ${country}`);
       }
     } catch (err) {
-      console.error('Error processing profile:', err);
+      console.error(`Error processing profile ${profile.id}:`, err);
       continue;
     }
   }
