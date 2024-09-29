@@ -40,7 +40,7 @@ function cleanText(text) {
 async function fetchSearchResults() {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Berlin Stealth Mode';
+  const query = 'site:linkedin.com/in München Stealth Mode';
   const resultsPerPage = 10;
   const totalResults = 100;
 
@@ -251,5 +251,3 @@ process.on('unhandledRejection', (reason, promise) => {
   // Application specific logging, throwing an error, or other logic here
 });
 
-// Remove this line as it's now handled in executeAllFunctions
-// fetchSearchResults();
