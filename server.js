@@ -37,26 +37,31 @@ function cleanText(text) {
 }
 
 // Function to fetch search results from Google Custom Search API
-async function fetchSearchResults() {
+async function fetchSearchResults(keywords) {
   const apiKey = process.env.GOOGLE_API_KEY;
   const cx = process.env.GOOGLE_CX;
-  const query = 'site:linkedin.com/in Stealth Berlin';
+  const baseQuery = 'site:linkedin.com/in Stealth Mode';
   const resultsPerPage = 10;
   const totalResults = 100;
 
   let allResults = [];
 
-  for (let start = 1; start <= totalResults; start += resultsPerPage) {
-    const url = `https://www.googleapis.com/customsearch/v1?q=${query}&key=${apiKey}&cx=${cx}&start=${start}&fields=items(title,link,snippet,pagemap)`;
+  for (const keyword of keywords) {
+    console.log(`Processing keyword: ${keyword}`);
+    const query = encodeURIComponent(`${baseQuery} ${keyword} Berlin`);
 
-    try {
-      const response = await axios.get(url);
-      const data = response.data;
-      allResults = allResults.concat(data.items || []);
-      console.log(`Fetched results ${start} to ${start + resultsPerPage - 1}`);
-    } catch (error) {
-      console.error(`Error fetching search results for start=${start}:`, error);
-      // Continue with the next batch instead of throwing an error
+    for (let start = 1; start <= totalResults; start += resultsPerPage) {
+      const url = `https://www.googleapis.com/customsearch/v1?q=${query}&key=${apiKey}&cx=${cx}&start=${start}&fields=items(title,link,snippet,pagemap)`;
+
+      try {
+        const response = await axios.get(url);
+        const data = response.data;
+        allResults = allResults.concat(data.items || []);
+        console.log(`Fetched results ${start} to ${start + resultsPerPage - 1} for keyword: ${keyword}`);
+      } catch (error) {
+        console.error(`Error fetching search results for keyword=${keyword}, start=${start}:`, error);
+        // Continue with the next batch instead of throwing an error
+      }
     }
   }
 
@@ -176,7 +181,8 @@ async function fetchAndStoreSearchResults() {
 // Wrap all main functions in async functions for easier chaining
 async function runFetchSearchResults() {
   console.log('Starting fetchSearchResults');
-  const results = await fetchSearchResults();
+  const keywords = JSON.parse(process.env.SEARCH_KEYWORDS || '["Stealth"]'); // Parse the SEARCH_KEYWORDS environment variable
+  const results = await fetchSearchResults(keywords);
   console.log('Completed fetchSearchResults');
   return results;
 }
