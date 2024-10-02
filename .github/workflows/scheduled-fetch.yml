@@ -28,7 +28,7 @@ jobs:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         GOOGLE_CX: ${{ secrets.GOOGLE_CX }}
         PORT: 3000
-        SEARCH_KEYWORDS: '["Berlin", "Hamburg", "Munich", "Frankfurt"]'
+        SEARCH_KEYWORDS: '["Berlin", "Hamburg", "Munich", "Frankfurt", "München", "Karlsruhe", "Heidelberg", "Frankfurt", "Cologne"]'
       run: |
         node -e "console.log('Node.js version:', process.version)"
         node -e "console.log('Environment variables:', process.env)"
