@@ -18,7 +18,9 @@
     "express": "^4.17.1",
     "he": "^1.2.0",
     "node-cron": "^3.0.0",
-    "openai": "^4.58.2"
+    "openai": "^4.58.2",
+    "@clerk/nextjs": "^4.0.0",
+    "@clerk/clerk-sdk-node": "^4.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"

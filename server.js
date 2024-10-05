@@ -6,6 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
 const he = require('he');
 const isGitHubAction = process.env.GITHUB_ACTIONS === 'true';
+const { ClerkExpressWithAuth } = require("@clerk/clerk-sdk-node");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,6 +18,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Enable CORS
 app.use(cors());
+
+app.use(ClerkExpressWithAuth());
 
 // Function to clean text of HTML entities and tags
 function cleanText(text) {
@@ -204,6 +207,14 @@ async function setupServer() {
     // ... existing unfollow logic ...
   });
 
+  app.get('/api/protected', (req, res) => {
+    const { userId } = req.auth;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    // Handle the request for authenticated users
+  });
+
   if (!isGitHubAction) {
     app.listen(port, () => {
       console.log(`Server running at http://localhost:${port}`);
@@ -256,4 +267,3 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Application specific logging, throwing an error, or other logic here
 });
-

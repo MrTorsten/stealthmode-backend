@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // List of keywords to match
 const keywords = [
   'Oxford', 'Cambridge', 'Imperial College', 'WHU', 'St. Gallen', 'CDTM', 'Harvard', 'Stanford',
-   'MIT', 'ETH', 'London School of Economics and Political Science', 'LSE', 'HEC',
+   'MIT', 'ETH', 'London School of Economics and Political Science', 'HEC',
     'UCL', 'Sciences Po', 'BCG', 'Boston Consulting Group', 'Bain', 'McKinsey',
      'McK', 'Palantir', 'Meta', 'Google', 'Microsoft', 'Revolut', 'Spotify',
       'AirBnb', 'Coinbase', 'Stripe', 'Snowflake', 'Uber', 'Apple', 'Serial Founder', 'Serial Entrepreneur'
