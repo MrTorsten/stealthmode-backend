@@ -14,8 +14,9 @@ const keywords = [
       'AirBnb', 'Coinbase', 'Stripe', 'Snowflake', 'Uber', 'Apple', 'Serial Founder', 'Serial Entrepreneur'
 ];
 
-function isKeywordMatch(text, keywordList) {
+function countKeywordMatches(text, keywordList) {
   const normalizedText = text.toLowerCase();
+  let matchCount = 0;
   
   for (const keyword of keywordList) {
     const keywordPattern = keyword
@@ -27,11 +28,14 @@ function isKeywordMatch(text, keywordList) {
     const regex = new RegExp(keywordPattern);
     
     if (regex.test(normalizedText)) {
-      return true;
+      matchCount++;
+      if (matchCount >= 2) {
+        return matchCount;
+      }
     }
   }
   
-  return false;
+  return matchCount;
 }
 
 async function processKeywordMatching() {
@@ -47,7 +51,8 @@ async function processKeywordMatching() {
     console.log(`Found ${nullResults.length} profiles with NULL prime status to process.`);
 
     for (const result of nullResults) {
-      const isPrime = isKeywordMatch(result.og_description, keywords);
+      const keywordMatchCount = countKeywordMatches(result.og_description, keywords);
+      const isPrime = keywordMatchCount >= 2;
 
       // Update the "prime" column
       const { error: updateError } = await supabase
@@ -58,7 +63,7 @@ async function processKeywordMatching() {
       if (updateError) {
         console.error(`Error updating prime status for ID ${result.id}:`, updateError);
       } else {
-        console.log(`Updated prime status for ID ${result.id} to ${isPrime}`);
+        console.log(`Updated prime status for ID ${result.id} to ${isPrime} (${keywordMatchCount} keywords matched)`);
       }
     }
 

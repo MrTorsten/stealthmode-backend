@@ -21,8 +21,8 @@ async function runPipeline() {
         await new Promise(resolve => setTimeout(resolve, 600000));
         
         await runScript('data_pipeline.js');
-        console.log('Waiting 10 minutes...');
-        await new Promise(resolve => setTimeout(resolve, 600000));
+        console.log('Waiting 20 minutes...'); // Increased wait time
+        await new Promise(resolve => setTimeout(resolve, 600000)); // 20 minutes
         
         await runScript('process_search_results.js');
         console.log('Waiting 10 minutes...');
