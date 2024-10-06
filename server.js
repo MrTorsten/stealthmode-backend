@@ -181,7 +181,7 @@ async function fetchAndStoreSearchResults() {
 // Wrap all main functions in async functions for easier chaining
 async function runFetchSearchResults() {
   console.log('Starting fetchSearchResults');
-  const keywords = JSON.parse(process.env.SEARCH_KEYWORDS || '["Stealth"]'); // Parse the SEARCH_KEYWORDS environment variable
+  const keywords = JSON.parse(process.env.SEARCH_KEYWORDS || '["Berlin"]'); // Parse the SEARCH_KEYWORDS environment variable
   const results = await fetchSearchResults(keywords);
   console.log('Completed fetchSearchResults');
   return results;
