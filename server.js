@@ -6,7 +6,6 @@ const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
 const he = require('he');
 const isGitHubAction = process.env.GITHUB_ACTIONS === 'true';
-const { ClerkExpressWithAuth } = require("@clerk/clerk-sdk-node");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -18,8 +17,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Enable CORS
 app.use(cors());
-
-app.use(ClerkExpressWithAuth());
 
 // Function to clean text of HTML entities and tags
 function cleanText(text) {
