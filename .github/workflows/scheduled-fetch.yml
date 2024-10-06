@@ -47,7 +47,7 @@ jobs:
         node-version: '20'
 
     - name: Install dependencies
-      run: npm ci
+      run: npm install
 
     - name: Wait for 10 minutes
       run: sleep 600
@@ -71,7 +71,7 @@ jobs:
         node-version: '20'
 
     - name: Install dependencies
-      run: npm ci
+      run: npm install
 
     - name: Wait for 10 minutes
       run: sleep 600
@@ -96,7 +96,7 @@ jobs:
         node-version: '20'
 
     - name: Install dependencies
-      run: npm ci
+      run: npm install
 
     - name: Wait for 10 minutes
       run: sleep 600
