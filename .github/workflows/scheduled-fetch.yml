@@ -88,7 +88,7 @@ jobs:
     - name: Install dependencies
       run: 
         npm install
-        npm install openai
+        npm install openai @supabase/supabase-js @supabase/functions-js
 
     - name: Wait for 10 minutes
       run: sleep 600
