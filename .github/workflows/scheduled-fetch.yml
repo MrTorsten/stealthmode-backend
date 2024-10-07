@@ -49,23 +49,33 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-
+    
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '20'
-
-    - name: Install dependencies
-      run: npm install
-
-    - name: Wait for 10 minutes
-      run: sleep 600
-
+        cache: 'npm'
+    
+    - name: Clean install dependencies
+      run: |
+        rm -rf node_modules package-lock.json
+        npm cache clean --force
+        npm install
+    
+    - name: Verify Supabase installation
+      run: |
+        npm list @supabase/supabase-js
+        ls -la node_modules/@supabase
+    
     - name: Run data pipeline script
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-      run: node data_pipeline.js || { echo "data_pipeline.js failed"; exit 1; }
+        NODE_ENV: production
+      run: |
+        node -e "console.log('Node.js version:', process.version)"
+        node -e "const { createClient } = require('@supabase/supabase-js'); console.log('Supabase initialized successfully');"
+        node data_pipeline.js || { echo "data_pipeline.js failed"; exit 1; }
 
   process-search-results:
     needs: run-data-pipeline
