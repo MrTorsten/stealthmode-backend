@@ -8,20 +8,14 @@
     "pipeline": "node data_pipeline.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.39.3",
-    "@supabase/functions-js": "2.1.5",
-    "@supabase/gotrue-js": "2.62.0",
-    "@supabase/realtime-js": "2.9.3",
-    "@supabase/postgrest-js": "1.9.1",
-    "@supabase/storage-js": "2.5.4",
+    "@supabase/supabase-js": "1.35.7",
     "axios": "^1.6.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.17.1",
     "he": "^1.2.0",
     "node-cron": "^3.0.2",
-    "json2csv": "^5.0.6",
-    "cross-fetch": "^4.0.0"
+    "json2csv": "^5.0.6"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
