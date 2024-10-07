@@ -12,15 +12,24 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-
+    
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '20'
-
-    - name: Install dependencies
-      run: npm install
-
+        cache: 'npm'
+    
+    - name: Clean install dependencies
+      run: |
+        rm -rf node_modules
+        npm cache clean --force
+        npm install
+    
+    - name: Verify axios installation
+      run: |
+        ls -la node_modules/axios
+        npm list axios
+    
     - name: Run server script
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
