@@ -4,123 +4,111 @@ on:
   schedule:
     # Runs at 00:00 UTC every day
     - cron: '0 0 * * *'
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
 
 jobs:
   fetch-search-results:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-        cache: 'npm'
-    
-    - name: Clean install dependencies
-      run: |
-        rm -rf node_modules
-        npm cache clean --force
-        npm install
-    
-    - name: Verify axios installation
-      run: |
-        ls -la node_modules/axios
-        npm list axios
-    
-    - name: Run server script
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-        GOOGLE_CX: ${{ secrets.GOOGLE_CX }}
-        PORT: 3000
-        SEARCH_KEYWORDS: '["Berlin", "Hamburg", "Munich", "Frankfurt", "München", "Karlsruhe", "Paris", "Frankfurt", "London"]'
-      run: |
-        node -e "console.log('Node.js version:', process.version)"
-        node -e "console.log('Environment variables:', process.env)"
-        node server.js || { echo "server.js failed"; exit 1; }
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules
+          npm cache clean --force
+          npm install
+      - name: Verify axios installation
+        run: |
+          ls -la node_modules/axios
+          npm list axios
+      - name: Run server script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CX: ${{ secrets.GOOGLE_CX }}
+          PORT: 3000
+          SEARCH_KEYWORDS: '["Berlin", "Hamburg", "Munich", "Frankfurt", "München", "Karlsruhe", "Paris", "Frankfurt", "London"]'
+        run: |
+          node -e "console.log('Node.js version:', process.version)"
+          node -e "console.log('Environment variables:', process.env)"
+          node server.js || { echo "server.js failed"; exit 1; }
 
   run-data-pipeline:
     needs: fetch-search-results
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-        cache: 'npm'
-    
-    - name: Clean install dependencies
-      run: |
-        rm -rf node_modules package-lock.json
-        npm cache clean --force
-        npm install
-
-    - name: Update Supabase client
-      run: npm install @supabase/supabase-js@latest
-
-    - name: Run data pipeline script
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        NODE_ENV: production
-      run: |
-        node data_pipeline.js || { echo "data_pipeline.js failed"; exit 1; }
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm cache clean --force
+          npm install
+      - name: Update Supabase client
+        run: npm install @supabase/supabase-js@latest
+      - name: Run data pipeline script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          NODE_ENV: production
+        run: |
+          node data_pipeline.js || { echo "data_pipeline.js failed"; exit 1; }
 
   process-search-results:
     needs: run-data-pipeline
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-
-    - name: Install dependencies
-      run: 
-        npm install
-        npm install openai @supabase/supabase-js @supabase/functions-js
-
-    - name: Wait for 10 minutes
-      run: sleep 600
-
-    - name: Run process search results script
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: node process_search_results.js || { echo "process_search_results.js failed"; exit 1; }
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: |
+          npm ci || npm install
+          npm install @supabase/supabase-js@latest @supabase/postgrest-js openai @supabase/functions-js
+      - name: Wait for 10 minutes
+        run: sleep 600
+      - name: Run process search results script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node process_search_results.js || { echo "process_search_results.js failed"; exit 1; }
 
   clean-locations:
     needs: process-search-results
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-
-    - name: Install dependencies
-      run: npm install
-
-    - name: Wait for 10 minutes
-      run: sleep 600
-
-    - name: Run location cleaner script
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: node location_cleaner.js || { echo "location_cleaner.js failed"; exit 1; }
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: |
+          npm ci || npm install
+          npm install @supabase/supabase-js@latest @supabase/postgrest-js
+      - name: Wait for 10 minutes
+        run: sleep 600
+      - name: Run location cleaner script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node location_cleaner.js || { echo "location_cleaner.js failed"; exit 1; }
