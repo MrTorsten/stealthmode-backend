@@ -79,7 +79,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci || npm install
-          npm install @supabase/supabase-js@latest @supabase/postgrest-js openai @supabase/functions-js
+          npm install @supabase/supabase-js@latest @supabase/postgrest-js openai @supabase/functions-js @supabase/realtime-js
       - name: Wait for 10 minutes
         run: sleep 600
       - name: Run process search results script

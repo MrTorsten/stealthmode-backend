@@ -10,6 +10,7 @@
   "dependencies": {
     "@supabase/supabase-js": "latest",
     "@supabase/postgrest-js": "latest",
+    "@supabase/realtime-js": "latest",
     "@supabase/functions-js": "latest",
     "openai": "latest",
     "axios": "^1.6.2",
