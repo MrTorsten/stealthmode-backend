@@ -108,9 +108,10 @@ async function updateProcessedResults() {
                     .from('processed_results')
                     .upsert(upsertData, { 
                         onConflict: 'link',
-                        ignoreDuplicates: false
+                        ignoreDuplicates: false,
+                        update: ['last_name', 'first_name', 'og_image', 'og_description', 'title', 'updated_at']
                     });
-
+            
                 if (error) throw error;
             }
 
