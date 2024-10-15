@@ -39,9 +39,9 @@ async function processSearchResults(searchResults, existingMap, currentTimestamp
         const existingData = existingMap.get(result.link);
 
         if (existingData) {
+            // Remove created_at from newData to preserve the original timestamp
             newData.created_at = existingData.created_at;
             
-            // Compare newData with existingData using JSON.stringify
             const newDataString = JSON.stringify(newData);
             const existingDataString = JSON.stringify({
                 ...existingData,
@@ -53,15 +53,13 @@ async function processSearchResults(searchResults, existingMap, currentTimestamp
                 for (const key in newData) {
                     if (newData[key] !== existingData[key] && key !== 'updated_at') {
                         changedFields.add(key);
-                        console.log(`Change detected for link ${result.link} in field ${key}:`);
-                        console.log(`  Old value: ${existingData[key]}`);
-                        console.log(`  New value: ${newData[key]}`);
                     }
                 }
             } else {
                 unchangedCount++;
             }
         } else {
+            // Only set created_at for new entries
             newData.created_at = currentTimestamp;
             upsertData.push(newData);
         }
@@ -74,7 +72,6 @@ async function updateProcessedResults() {
     try {
         const currentTimestamp = new Date().toISOString();
 
-        // Get existing processed results
         const { data: existingProcessedResults, error: existingError } = await supabase
             .from('processed_results')
             .select('*');
@@ -102,17 +99,18 @@ async function updateProcessedResults() {
             changedFields.forEach(field => totalChangedFields.add(field));
             totalProcessed += searchResults.length;
 
-            // Perform the upsert for this batch
             if (upsertData.length > 0) {
-                const { error } = await supabase
+                const { error: upsertError } = await supabase
                     .from('processed_results')
                     .upsert(upsertData, { 
                         onConflict: 'link',
                         ignoreDuplicates: false,
-                        update: ['last_name', 'first_name', 'og_image', 'og_description', 'title', 'updated_at']
-                    });
+                    })
+                    .select('link, created_at');
             
-                if (error) throw error;
+                if (upsertError) {
+                    console.error('Error during upsert:', upsertError);
+                }
             }
 
             console.log(`Processed batch: ${from} to ${to}`);
@@ -121,8 +119,7 @@ async function updateProcessedResults() {
         }
 
         console.log(`Processing complete.`);
-        console.log(`New insertions: ${totalUpsertData.filter(item => !existingMap.has(item.link)).length}`);
-        console.log(`Updates to existing rows: ${totalUpsertData.filter(item => existingMap.has(item.link)).length}`);
+        console.log(`New insertions or updates: ${totalUpsertData.length}`);
         console.log(`Unchanged rows: ${totalUnchangedCount}`);
         console.log(`Total rows processed: ${totalProcessed}`);
         console.log(`Fields that changed: ${Array.from(totalChangedFields).join(', ')}`);
